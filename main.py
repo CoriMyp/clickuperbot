@@ -1,0 +1,186 @@
+from aiogram import Bot, Dispatcher, F, types
+from aiogram.filters import Command
+from aiogram.enums import ParseMode
+import asyncio
+
+from clickup import new_task
+from config import db, execute
+import config
+import utils, gpt
+
+
+# bot init
+bot = Bot(token=config.BOT_TOKEN)
+dp = Dispatcher()
+
+
+# command "/setname <NAME>" which will be used to mention bot
+@dp.message(Command("setname"), F.chat.type == "private")
+async def set_name(msg: types.Message):
+	splitted = msg.text.split(maxsplit=1)
+	if len(splitted) != 2:
+		await msg.answer(
+			f"Bot named as *{config.BOT_NAME}*",
+			parse_mode=ParseMode.MARKDOWN_V2
+		)
+		return
+
+	config.BOT_NAME = splitted[1]
+
+	await msg.answer(
+		f"Bot named as *{config.BOT_NAME}*",
+		parse_mode=ParseMode.MARKDOWN_V2
+	)
+
+
+# command "/add <USERNAME> <NAME>" will add a member which may be used at tasks
+# USERNAME - username from TG (like @username)
+# NAME - name from ClickUp
+@dp.message(Command("add"), F.chat.type == "private")
+async def add_member(msg: types.Message):
+	splitted = msg.text.split(maxsplit=2)
+	if len(splitted) != 3:
+		return
+
+	username = splitted[1]
+	name = splitted[2]
+
+	execute("INSERT INTO members VALUES (?, ?)", (username, name))
+	db.commit()
+
+	await msg.answer(
+		f"{username} was added as *{name}*",
+		parse_mode=ParseMode.MARKDOWN_V2
+	)
+
+# command "/del <USERNAME>" will delete member from table by a TG username
+@dp.message(Command("del"), F.chat.type == "private")
+async def del_member(msg: types.Message):
+	splitted = msg.text.split(maxsplit=1)
+	if len(splitted) != 2:
+		return
+
+	username = splitted[1]
+
+	execute("DELETE FROM members WHERE username = ?", (username,))
+	db.commit()
+
+	await msg.answer(f"{username} was deleted")
+
+
+# command "/members" will display all added members to a table
+@dp.message(Command("members"), F.chat.type == "private")
+async def list_members(msg: types.Message):
+	members = execute("SELECT * FROM members").fetchall()
+
+	text = "List of members:\n"
+
+	for username, name in members:
+		text += f"*{name}* {username}\n"
+
+	await msg.answer(
+		text=text,
+		parse_mode=ParseMode.MARKDOWN_V2
+	)
+
+
+# command "/saveto <FOLDER>:<LIST>" will be set folder:list where to save tasks
+@dp.message(Command("saveto"), F.chat.type == "private")
+async def save_to(msg: types.Message):
+	splitted = msg.text.split(maxsplit=1)
+	if len(splitted) != 2:
+		return
+
+	folder = splitted[1].split(":")[0]
+	list = splitted[1].split(":")[1]
+
+	execute("UPDATE data SET value=? WHERE key=?", (folder, "folder"))
+	execute("UPDATE data SET value=? WHERE key=?", (list, "list"))
+	db.commit()
+
+	await msg.answer(
+		f"Path updated on:\n"
+		f"Folder: *{folder}*\n"
+		f"List: *{list}*",
+		parse_mode=ParseMode.MARKDOWN_V2
+	)
+
+
+# command "/path" display where are saving tasks
+@dp.message(Command("path"), F.chat.type == "private")
+async def path(msg: types.Message):
+	folder = execute("SELECT value FROM data WHERE key=?", ("folder",)).fetchone()[0]
+	list = execute("SELECT value FROM data WHERE key=?", ("list",)).fetchone()[0]
+
+	await msg.answer(
+		"Tasks saving to:\n"
+		f"Folder: *{folder}*\n"
+		f"List: *{list}*",
+		parse_mode=ParseMode.MARKDOWN_V2
+	)
+
+
+# handler for input messages where bot mentioned
+@dp.message(F.text.is_not(None), F.chat.type.contains("group"))
+async def message_handler(msg: types.Message):
+	# check if bot mentioned in message (by name or username)
+	if not utils.is_bot_mentioned(msg):
+		return
+	
+	msg_text = utils.clean_up_text(msg.text)
+
+	# get response from AI
+	try:
+		response = gpt.get_response(msg_text)
+	except Exception as e:
+		await utils.error_msg(
+			bot, msg,
+			text=(
+				"Error from AI\n" \
+				"```\n" \
+				f"{e}"
+				"\n```"
+			)
+		)
+
+	# try to parse json from AI-response
+	try:
+		parsed = utils.parse_json(response)
+	except Exception:
+		await utils.error_msg(
+			bot, msg,
+			text=(
+				"Can't convert to json this text:\n" \
+				"```\n" \
+				f"{response}"
+				"\n```"
+			)
+		)
+	print(parsed)
+	
+	# '@sender' -> msg.from_user.username
+	if "@sender" in parsed["users"]:
+		parsed["users"].append(f"@{msg.from_user.username}")
+		parsed["users"].remove("@sender")
+
+	# creating task on ClickUp
+	try:
+		new_task(parsed["name"], parsed["description"], parsed["users"], parsed["deadline"])
+		await msg.react(reaction=[types.ReactionTypeEmoji(emoji="❤️")])
+	except Exception as e:
+		await utils.error_msg(
+			bot, msg,
+			"Error on creating new task\n" \
+			"```\n" \
+			f"{e}"
+			"\n```"
+		)
+
+
+async def main():
+	print("Bot started! (clickuperbot)")
+	await dp.start_polling(bot)
+
+
+if __name__ == '__main__':
+	asyncio.run(main())
