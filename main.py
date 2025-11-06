@@ -119,6 +119,8 @@ async def message_handler(msg: types.Message):
         return
 
     msg_text = utils.clean_up_text(msg.text)
+    if not msg_text:
+        return
 
     # get response from AI
     try:
