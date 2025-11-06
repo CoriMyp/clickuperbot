@@ -32,16 +32,29 @@ async def set_name(msg: types.Message):
 
 
 # command "/add <USERNAME> <NAME>" will add a member which may be used at tasks
-# USERNAME - username from TG (like @username)
+# USERNAME - username from TG (like @username) - can be extracted from message entities
 # NAME - name from ClickUp
 @dp.message(Command("add"), F.chat.type == "private")
 async def add_member(msg: types.Message):
+    # Try to extract username from message entities first
+    entity_mentions = utils.extract_mentions(msg)
+    
     splitted = msg.text.split(maxsplit=2)
-    if len(splitted) != 3:
+    if len(splitted) < 2:
         return
-
-    username = splitted[1].lower()
-    name = splitted[2]
+    
+    # Use entity mention if available, otherwise fallback to command argument
+    if entity_mentions:
+        username = entity_mentions[0]  # Already normalized to lowercase
+        if len(splitted) < 3:
+            await msg.answer("Please provide a name for the member.")
+            return
+        name = splitted[2]
+    else:
+        if len(splitted) != 3:
+            return
+        username = splitted[1].lower()
+        name = splitted[2]
 
     execute("INSERT INTO members VALUES (?, ?)", (username, name))
     db.commit()
@@ -52,13 +65,21 @@ async def add_member(msg: types.Message):
 
 
 # command "/del <USERNAME>" will delete member from table by a TG username
+# USERNAME can be extracted from message entities or provided as command argument
 @dp.message(Command("del"), F.chat.type == "private")
 async def del_member(msg: types.Message):
-    splitted = msg.text.split(maxsplit=1)
-    if len(splitted) != 2:
-        return
-
-    username = splitted[1].lower()
+    # Try to extract username from message entities first
+    entity_mentions = utils.extract_mentions(msg)
+    
+    if entity_mentions:
+        username = entity_mentions[0]  # Already normalized to lowercase
+    else:
+        # Fallback to command argument
+        splitted = msg.text.split(maxsplit=1)
+        if len(splitted) != 2:
+            await msg.answer("Please provide a username or mention a user.")
+            return
+        username = splitted[1].lower()
 
     execute("DELETE FROM members WHERE username = ?", (username,))
     db.commit()
@@ -118,7 +139,7 @@ async def message_handler(msg: types.Message):
     if not utils.is_bot_mentioned(msg):
         return
 
-    msg_text = utils.clean_up_text(msg.text)
+    msg_text = utils.clean_up_text(msg)
     if not msg_text:
         print("Message text is empty after clean_up_text (bot name/username removal)")
         return
@@ -140,10 +161,31 @@ async def message_handler(msg: types.Message):
         )
     print(parsed)
 
-    # '@sender' -> msg.from_user.username
-    if "@sender" in parsed["users"]:
-        parsed["users"].append(f"@{msg.from_user.username}")
-        parsed["users"].remove("@sender")
+    # Extract actual @mentions from message entities (more reliable than AI parsing)
+    entity_mentions = utils.extract_mentions(msg)
+
+    # Merge entity-extracted mentions with AI-parsed users
+    # Prioritize entity mentions, then add AI-parsed users that aren't already included
+    all_users = list(
+        set(entity_mentions)
+    )  # Start with entity mentions (unique, lowercase)
+
+    # Process AI-parsed users and normalize to lowercase
+    for user in parsed.get("users", []):
+        if not isinstance(user, str):
+            continue
+        user_lower = user.lower()
+
+        # Replace @sender with actual username (normalized to lowercase)
+        if user_lower == "@sender":
+            if msg.from_user.username:
+                sender_username = f"@{msg.from_user.username}".lower()
+                if sender_username not in all_users:
+                    all_users.append(sender_username)
+        elif user_lower not in all_users:
+            all_users.append(user_lower)
+
+    parsed["users"] = all_users
 
     # creating task on ClickUp
     try:
