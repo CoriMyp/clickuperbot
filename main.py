@@ -40,7 +40,7 @@ async def add_member(msg: types.Message):
     if len(splitted) != 3:
         return
 
-    username = splitted[1]
+    username = splitted[1].lower()
     name = splitted[2]
 
     execute("INSERT INTO members VALUES (?, ?)", (username, name))
@@ -58,7 +58,7 @@ async def del_member(msg: types.Message):
     if len(splitted) != 2:
         return
 
-    username = splitted[1]
+    username = splitted[1].lower()
 
     execute("DELETE FROM members WHERE username = ?", (username,))
     db.commit()
@@ -120,6 +120,7 @@ async def message_handler(msg: types.Message):
 
     msg_text = utils.clean_up_text(msg.text)
     if not msg_text:
+        print("Message text is empty after clean_up_text (bot name/username removal)")
         return
 
     # get response from AI
