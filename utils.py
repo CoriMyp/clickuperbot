@@ -10,18 +10,21 @@ def is_bot_mentioned(msg: types.Message) -> bool:
     Checks if the message starts with the bot's name or username (case insensitive).
     """
     text = msg.text or ""
-    bot_names = (config.BOT_NAME.lower(), config.BOT_USERNAME.lower())
-    return text.lower().startswith(bot_names)
+    return text.lower().startswith(config.BOT_NAME)
 
 
 def clean_up_text(text: str) -> str:
     """
     Cleans up the text of the message by removing the bot's name or username.
     """
-    if text.startswith(config.BOT_NAME):
-        text = text.split(config.BOT_NAME, maxsplit=1)[1]
-    else:
-        text = text.split(config.BOT_USERNAME, maxsplit=1)[1]
+    # remove bot username
+    if text.startswith(config.BOT_USERNAME):
+        text = text.replace(config.BOT_USERNAME, "", 1)
+    # remove bot name (any case)
+    for bot_name in [config.BOT_NAME, config.BOT_NAME.lower()]:
+        if text.startswith(bot_name):
+            text = text.replace(bot_name, "", 1)
+    # clear spaces
     return text.strip()
 
 
