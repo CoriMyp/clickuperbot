@@ -50,12 +50,21 @@ def clean_up_text(msg: types.Message) -> str:
             text = text.replace(mention, "", 1)
 
     # Fallback: remove bot name/username from start (for cases without entities)
-    if text.startswith(config.BOT_USERNAME):
-        text = text.replace(config.BOT_USERNAME, "", 1)
-    # remove bot name (any case)
-    for bot_name in [config.BOT_NAME, config.BOT_NAME.lower()]:
-        if text.startswith(bot_name):
-            text = text.replace(bot_name, "", 1)
+    # Check bot username (case-insensitive)
+    text_lower = text.lower()
+    bot_username_lower = config.BOT_USERNAME.lower()
+    if text_lower.startswith(bot_username_lower):
+        # Remove the bot username (preserving original case)
+        username_len = len(config.BOT_USERNAME)
+        text = text[username_len:]
+        text_lower = text.lower()  # Recalculate after removal
+
+    # Remove bot name (case-insensitive)
+    bot_name_lower = config.BOT_NAME.lower()
+    if text_lower.startswith(bot_name_lower):
+        # Remove the bot name (preserving original case)
+        bot_name_len = len(config.BOT_NAME)
+        text = text[bot_name_len:]
 
     # clear spaces
     return text.strip()
