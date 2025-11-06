@@ -38,11 +38,12 @@ async def set_name(msg: types.Message):
 async def add_member(msg: types.Message):
     # Try to extract username from message entities first
     entity_mentions = utils.extract_mentions(msg)
-    
+
+    # Validate command arguments (username and name)
     splitted = msg.text.split(maxsplit=2)
     if len(splitted) < 2:
         return
-    
+
     # Use entity mention if available, otherwise fallback to command argument
     if entity_mentions:
         username = entity_mentions[0]  # Already normalized to lowercase
@@ -56,7 +57,14 @@ async def add_member(msg: types.Message):
         username = splitted[1].lower()
         name = splitted[2]
 
-    execute("INSERT INTO members VALUES (?, ?)", (username, name))
+    # Add member to database
+    execute(
+        "INSERT INTO members VALUES (?, ?)",
+        (
+            username.lower(),  # normalized to lowercase (safety net)
+            name,
+        ),
+    )
     db.commit()
 
     await msg.answer(
@@ -70,7 +78,7 @@ async def add_member(msg: types.Message):
 async def del_member(msg: types.Message):
     # Try to extract username from message entities first
     entity_mentions = utils.extract_mentions(msg)
-    
+
     if entity_mentions:
         username = entity_mentions[0]  # Already normalized to lowercase
     else:
