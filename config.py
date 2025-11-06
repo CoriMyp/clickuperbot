@@ -11,22 +11,30 @@ BOT_TOKEN = "7905278318:AAFcxeKoyLmJ_V_CNrzHVVOutkmQAw6rN9M"
 BOT_NAME = "бот"
 BOT_USERNAME = "@NASHEMESTOtask_bot"
 BOT_ID = 7905278318
-BOT_ADMINS = [447050022, 1004461367]
+BOT_ADMINS = [
+    447050022,
+    1004461367,
+    477475914,  # @WhoisZack
+]
 
 
 # db init
 db = sql.connect("data.db")
 execute = db.cursor().execute
 
-execute("""CREATE TABLE IF NOT EXISTS members(
+execute(
+    """CREATE TABLE IF NOT EXISTS members(
     username TEXT,
     name TEXT
-)""")
+)"""
+)
 
-execute("""CREATE TABLE IF NOT EXISTS data(
+execute(
+    """CREATE TABLE IF NOT EXISTS data(
     key TEXT,
     value TEXT
-)""")
+)"""
+)
 
 if execute("SELECT key FROM data WHERE key='folder'").fetchone() is None:
     execute("INSERT OR IGNORE INTO data(key, value) VALUES (?, ?)", ("folder", ""))
