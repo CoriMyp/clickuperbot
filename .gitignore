@@ -1,5 +1,9 @@
+# Global
+.env
+# Python related
 .venv/
 venv/
 __pycache__/
 
+# Project related
 scripts/

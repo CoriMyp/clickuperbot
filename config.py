@@ -1,17 +1,25 @@
 import sqlite3 as sql
+import dotenv
+import os
+
+dotenv.load_dotenv()
 
 
 # API KEYS
-OPENAI_API_KEY = "***"
-CLICKUP_API_KEY = "***"
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+CLICKUP_API_KEY = os.getenv("CLICKUP_API_KEY")
 
 
 # BOT CONFIG
-BOT_TOKEN = "***"
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 BOT_NAME = "бот"
-BOT_USERNAME = "***"
-BOT_ID = 000
-BOT_ADMINS = []
+BOT_USERNAME = "@NASHEMESTOtask_bot"
+BOT_ID = 7905278318
+BOT_ADMINS = [
+    447050022,
+    1004461367,
+    477475914,  # @WhoisZack
+]
 
 
 # db init
