@@ -82,10 +82,12 @@ def list() -> Optional[dict]:
     return None
 
 
-def new_task(name: str, description: str, users: List[str], deadline: str):
+def new_task(name: str, description: str, users: List[str], deadline: str, is_task_complete: bool):
     members = convert_usernames_to_members(users)
     if isinstance(members, str):
         raise Exception(f"A member {members} not found")
+    assignees = [m["id"] for m in members]
+    print('Assignees:', assignees)
 
     if deadline != "":
         try:
@@ -107,8 +109,9 @@ def new_task(name: str, description: str, users: List[str], deadline: str):
             {
                 "name": name,
                 "description": description,
-                "assignees": [m["id"] for m in members],
+                "assignees": assignees,
                 "due_date": int(due_day * 1000),
+                **({"status": "complete"} if is_task_complete else {})
             }
         ),
     )

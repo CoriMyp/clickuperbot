@@ -4,6 +4,12 @@ import json
 
 import config
 
+def is_task_complete(msg: types.Message) -> bool:
+    text = msg.text or ""
+    is_task_complete = text.lower().startswith(config.BOT_NAME_IF_TASK_COMPLETE.lower())
+    print(f"{is_task_complete=}")
+    return is_task_complete
+
 
 def is_bot_mentioned(msg: types.Message) -> bool:
     """
@@ -21,8 +27,7 @@ def is_bot_mentioned(msg: types.Message) -> bool:
 
     # Fallback to text-based check (for bot name)
     text = msg.text or ""
-    bot_name_lower = config.BOT_NAME.lower()
-    return text.lower().startswith(bot_name_lower)
+    return text.lower().startswith(config.BOT_NAME.lower()) or text.lower().startswith(config.BOT_NAME_IF_TASK_COMPLETE.lower())
 
 
 def clean_up_text(msg: types.Message) -> str:

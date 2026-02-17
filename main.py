@@ -146,13 +146,14 @@ async def message_handler(msg: types.Message):
     # check if bot mentioned in message (by name or username)
     if not utils.is_bot_mentioned(msg):
         return
-
+    
     msg_text = utils.clean_up_text(msg)
     if not msg_text:
         print("Message text is empty after clean_up_text (bot name/username removal)")
         return
 
     # get response from AI
+    response = "Something wrong with ChatGPT response"
     try:
         response = gpt.get_response(msg_text)
     except Exception as e:
@@ -161,13 +162,15 @@ async def message_handler(msg: types.Message):
     # try to parse json from AI-response
     try:
         parsed = utils.parse_json(response)
+        print('Parsed from LLM:', parsed)
     except Exception:
         await utils.error_msg(
             bot,
             msg,
             text=("Can't convert to json this text:\n" "```\n" f"{response}" "\n```"),
         )
-    print(parsed)
+        print("Can't receive parsed data from ChatGPT response")
+        return
 
     # Extract actual @mentions from message entities (more reliable than AI parsing)
     entity_mentions = utils.extract_mentions(msg)
@@ -194,11 +197,12 @@ async def message_handler(msg: types.Message):
             all_users.append(user_lower)
 
     parsed["users"] = all_users
+    print('Parsed after username patch:', parsed)
 
     # creating task on ClickUp
     try:
         new_task(
-            parsed["name"], parsed["description"], parsed["users"], parsed["deadline"]
+            parsed["name"], parsed["description"], parsed["users"], parsed["deadline"], utils.is_task_complete(msg)
         )
         await msg.react(reaction=[types.ReactionTypeEmoji(emoji="❤️")])
     except Exception as e:
