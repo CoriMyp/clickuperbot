@@ -23,11 +23,18 @@ def is_bot_mentioned(msg: types.Message) -> bool:
             if entity.type == MessageEntityType.MENTION:
                 mention_text_lower = entity.extract_from(msg.text).lower()
                 if mention_text_lower == bot_username_lower:
+                    print('is_bot_mentioned via entity')
                     return True
 
     # Fallback to text-based check (for bot name)
     text = msg.text or ""
-    return text.lower().startswith(config.BOT_NAME.lower()) or text.lower().startswith(config.BOT_NAME_IF_TASK_COMPLETE.lower())
+    parts = text.split()
+    if not parts:
+        return False
+    first_word = parts[0].lower()
+    condition = first_word == config.BOT_NAME.lower() or first_word == config.BOT_NAME_IF_TASK_COMPLETE.lower()
+    print('is_bot_mentioned via text', condition)
+    return condition
 
 
 def clean_up_text(msg: types.Message) -> str:
