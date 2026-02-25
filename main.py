@@ -3,7 +3,7 @@ from aiogram.filters import Command
 from aiogram.enums import ParseMode
 import asyncio
 
-from clickup import new_task
+from clickup import new_task, mark_task_as_complete
 from config import db, execute
 import config
 import utils, gpt
@@ -139,10 +139,39 @@ async def path(msg: types.Message):
         parse_mode=ParseMode.MARKDOWN_V2,
     )
 
+# handler for replies
+@dp.message(F.reply_to_message.is_not(None), F.chat.type.contains("group"))
+async def reply_handler(msg: types.Message):
+    # Check that message is a task completion
+    words = msg.text.split()
+    if not words:
+        return
+    if len(words) > 1:
+        return
+    first_word_case_incencetive = words[0].lower()
+    if first_word_case_incencetive not in ['готово', 'done', 'сделано', 'завершено']:
+        return
+    
+    # DB: Get task id from tasks table
+    replied_message_id = msg.reply_to_message.message_id
+    res = execute("SELECT clickup_task_id FROM tasks WHERE telegram_message_id = ?", (replied_message_id,)).fetchone()
+    if not res:
+        print('Task not found for reply message:', replied_message_id)
+        return
+    task_id = res[0]
+    
+    # ClickUp: Mark task as complete 
+    try:
+        mark_task_as_complete(task_id)
+        await msg.react(reaction=[types.ReactionTypeEmoji(emoji="🎉")])
+    except Exception as e:
+        await utils.error_msg(bot, msg, text=("Error from ClickUp\n" "```\n" f"{e}" "\n```"))
+
 
 # handler for input messages where bot mentioned
 @dp.message(F.text.is_not(None), F.chat.type.contains("group"))
 async def message_handler(msg: types.Message):
+    print(msg.text)
     # check if bot mentioned in message (by name or username)
     if not utils.is_bot_mentioned(msg):
         return
@@ -201,14 +230,23 @@ async def message_handler(msg: types.Message):
 
     # creating task on ClickUp
     try:
-        new_task(
+        # create new task
+        clickup_task_id = new_task(
             parsed["name"], parsed["description"], parsed["users"], parsed["deadline"], utils.is_task_complete(msg)
         )
+        # save relation telegram message id <-> clickup task id
+        execute(
+            "INSERT INTO tasks (telegram_message_id, clickup_task_id) VALUES (?, ?)",
+            (msg.message_id, clickup_task_id),
+        )
+        db.commit()
+        print('[DB] Task saved:', msg.message_id, clickup_task_id)
         await msg.react(reaction=[types.ReactionTypeEmoji(emoji="❤️")])
     except Exception as e:
         await utils.error_msg(
             bot, msg, "Error on creating new task\n" "```\n" f"{e}" "\n```"
         )
+        print(e)
 
 
 async def main():

@@ -118,3 +118,24 @@ def new_task(name: str, description: str, users: List[str], deadline: str, is_ta
 
     if response.status_code != 200:
         raise Exception(f"[CLICKUP {response.status_code}] {response.text}")
+    
+    clickup_task = response.json()
+    print('Created new task:', clickup_task['url'])
+    return clickup_task['id']
+
+
+def mark_task_as_complete(task_id: str):
+    response = requests.put(
+        f"https://api.clickup.com/api/v2/task/{task_id}",
+        headers={
+            "Authorization": config.CLICKUP_API_KEY,
+            "Content-Type": "application/json",
+        },
+        data=json.dumps({"status": "complete"}),
+    )
+
+    if response.status_code != 200:
+        raise Exception(f"[CLICKUP {response.status_code}] {response.text}")
+
+    return response.json()
+

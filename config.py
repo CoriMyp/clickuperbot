@@ -41,6 +41,14 @@ execute(
 )"""
 )
 
+execute(
+    """CREATE TABLE IF NOT EXISTS tasks(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    telegram_message_id INTEGER,
+    clickup_task_id TEXT
+)"""
+)
+
 if execute("SELECT key FROM data WHERE key='folder'").fetchone() is None:
     execute("INSERT OR IGNORE INTO data(key, value) VALUES (?, ?)", ("folder", ""))
     execute("INSERT OR IGNORE INTO data(key, value) VALUES (?, ?)", ("list", ""))
