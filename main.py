@@ -143,7 +143,7 @@ async def path(msg: types.Message):
 @dp.message(F.reply_to_message.is_not(None), F.chat.type.contains("group"))
 async def reply_handler(msg: types.Message):
     # Check that message is a task completion
-    words = msg.text.split()
+    words = msg.text.split() if msg.text else []
     if not words:
         return
     if len(words) > 1:
