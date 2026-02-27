@@ -139,24 +139,21 @@ async def path(msg: types.Message):
         parse_mode=ParseMode.MARKDOWN_V2,
     )
 
-# handler for replies
-@dp.message(F.reply_to_message.is_not(None), F.chat.type.contains("group"))
+# handler for replies (mark task as complete)
+@dp.message(
+    F.reply_to_message.is_not(None),
+    F.chat.type.contains("group"),
+    F.text.lower().in_(["готово", "done", "сделано", "завершено"]),
+)
 async def reply_handler(msg: types.Message):
-    # Check that message is a task completion
-    words = msg.text.split() if msg.text else []
-    if not words:
-        return
-    if len(words) > 1:
-        return
-    first_word_case_incencetive = words[0].lower()
-    if first_word_case_incencetive not in ['готово', 'done', 'сделано', 'завершено']:
-        return
-    
     # DB: Get task id from tasks table
     replied_message_id = msg.reply_to_message.message_id
-    res = execute("SELECT clickup_task_id FROM tasks WHERE telegram_message_id = ?", (replied_message_id,)).fetchone()
+    res = execute(
+        "SELECT clickup_task_id FROM tasks WHERE telegram_message_id = ?",
+        (replied_message_id,),
+    ).fetchone()
     if not res:
-        print('Task not found for reply message:', replied_message_id)
+        print("Task not found for reply message:", replied_message_id)
         return
     task_id = res[0]
     
@@ -171,14 +168,16 @@ async def reply_handler(msg: types.Message):
 # handler for input messages where bot mentioned
 @dp.message(F.text.is_not(None), F.chat.type.contains("group"))
 async def message_handler(msg: types.Message):
+    print()
     print(msg.text)
     # check if bot mentioned in message (by name or username)
     if not utils.is_bot_mentioned(msg):
+        print("Skipped. Reason: Bot not mentioned in message")
         return
     
     msg_text = utils.clean_up_text(msg)
     if not msg_text:
-        print("Message text is empty after clean_up_text (bot name/username removal)")
+        print("Skipped. Reason: Empty task for message")
         return
 
     # get response from AI
